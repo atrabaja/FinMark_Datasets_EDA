@@ -4,8 +4,11 @@ import pandas as pd
 # Input csv file
 df = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\social_media_interactions_contaminated.csv")
 
-# Remove duplicate rows
-df = df.drop_duplicates()
+# Remove duplicate rows based on InteractionID, keeping the first occurrence
+df = df.drop_duplicates(subset='InteractionID', keep='first')
+
+# Confirm removal of duplicates
+print("Duplicate Interaction IDs remaining:", df['InteractionID'].duplicated().sum())  # Should be 0
 
 # Check for missing values
 print("Missing values before processing:")
@@ -39,20 +42,22 @@ if nat_count > 0:
 print("Data type of InteractionDate after final conversion:", df['InteractionDate'].dtypes)
 
 # Find the most frequent Platform
-most_frequent_date = df['Platform'].mode()[0]
+most_frequent_platform = df['Platform'].mode()[0]
 
 # Fill NaN values with the most frequent Platform
-df['Platform'] = df['Platform'].fillna(most_frequent_date)
+df['Platform'] = df['Platform'].fillna(most_frequent_platform)
 
-# Check if there are any NaN values after conversion
-print("NaN values in Sentiment after conversion:")
-print(df['Sentiment'].isna().sum())
+# Check if there are any NaN values in Platform after conversion
+print("NaN values in Platform after conversion:", df['Platform'].isna().sum())  # Should be 0
 
 # Find the most frequent Sentiment
-most_frequent_date = df['Sentiment'].mode()[0]
+most_frequent_sentiment = df['Sentiment'].mode()[0]
 
 # Fill NaN values with the most frequent Sentiment
-df['Sentiment'] = df['Sentiment'].fillna(most_frequent_date)
+df['Sentiment'] = df['Sentiment'].fillna(most_frequent_sentiment)
+
+# Check if there are any NaN values in Sentiment after conversion
+print("NaN values in Sentiment after conversion:", df['Sentiment'].isna().sum())  # Should be 0
 
 # Sort DataFrame by CustomerID
 df = df.sort_values(by='CustomerID').reset_index(drop=True)
