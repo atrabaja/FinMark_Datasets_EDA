@@ -1,0 +1,90 @@
+# Import pandas
+import pandas as pd
+
+# Input csv file
+df = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\customer_transactions_contaminated.csv")
+
+# Remove duplicate rows
+df = df.drop_duplicates()
+
+# Check for missing values
+print("Missing values before processing:")
+print(df.isna().sum())
+
+# Display unique formats in TransactionDate
+print("Unique formats in TransactionDate before conversion:\n", df['TransactionDate'].unique())
+
+# Define a function to parse different date formats
+def parse_date(date_str):
+    # Attempt to parse several known formats
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y', '%Y/%m/%d', '%d/%m/%Y', '%m/%d/%Y', '%B %d, %Y', '%d %B %Y'):
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except (ValueError, TypeError):
+            continue  # Try the next format if this one fails
+    return pd.NaT  # Return NaT if no formats worked
+
+# Apply the parsing function
+df['TransactionDate'] = df['TransactionDate'].apply(parse_date)
+
+# Check for NaT values after parsing
+nat_count = df['TransactionDate'].isna().sum()
+print("NaT values in TransactionDate column after conversion:", nat_count)
+
+# Inspect problematic entries if there are any NaT values
+if nat_count > 0:
+    print("Remaining problematic date entries:\n", df[df['TransactionDate'].isna()]['TransactionDate'])
+
+# Confirm the data type of TransactionDate after all conversions
+print("Data type of TransactionDate after final conversion:", df['TransactionDate'].dtypes)
+
+# Replace 'Free' and 'free' with 0 in Amount column
+df['Amount'] = df['Amount'].replace(['Free', 'free'], 0)
+
+# Convert Amount to numeric, turning invalid parsing into NaN
+df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
+
+# Convert negative values to NaN
+df['Amount'] = df['Amount'].apply(lambda x: x if x >= 0 else pd.NA)
+
+# Calculate the mean of the Amount column, excluding NaN values
+mean_amount = df['Amount'].mean()
+
+# Replace NaN values in Amount with the column's mean
+pd.set_option('future.no_silent_downcasting', True)
+df['Amount'] = df['Amount'].fillna(mean_amount).infer_objects(copy=False)
+
+# Round the Amount column to 2 decimal places
+df['Amount'] = df['Amount'].round(2)
+
+# Identify the most frequent category (mode)
+most_frequent_category = df['ProductCategory'].mode()[0]
+
+# Replace NaN values with the most frequent category
+df['ProductCategory'] = df['ProductCategory'].fillna(most_frequent_category)
+
+# Sort DataFrame by CustomerID
+df = df.sort_values(by='CustomerID').reset_index(drop=True)
+
+# Check for any remaining issues
+print("Amount column summary after cleaning:")
+print(df['Amount'].describe())
+
+# Rename columns
+df = df.rename(columns={
+    'CustomerID': 'Customer ID',
+    'TransactionID': 'Transaction ID',
+    'TransactionDate': 'Transaction Date',
+    'ProductCategory': 'Product Category',
+    'PaymentMethod': 'Payment Method'
+})
+
+# Verify the changes by printing the new column names
+print("Updated column names:")
+print(df.columns)
+
+# Print the DataFrame with formatting options
+print(df.to_string())  # Basic tabular output for full view
+
+# Export DataFrame
+df.to_csv("cleaned_customer_transactions.csv", index=False)
