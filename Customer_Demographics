@@ -4,8 +4,11 @@ import pandas as pd
 # Input csv file
 df = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\customer_demographics_contaminated.csv")
 
-# Remove duplicate rows
-df = df.drop_duplicates()
+# Remove rows with duplicate Customer IDs, keeping the first occurrence
+df = df.drop_duplicates(subset='CustomerID', keep='first')
+
+# Confirm removal of duplicates
+print("Duplicate Customer IDs remaining:", df['CustomerID'].duplicated().sum())  # Should be 0
 
 # Check for missing values before conversion
 print("Missing values before conversion:\n", df.isna().sum())
