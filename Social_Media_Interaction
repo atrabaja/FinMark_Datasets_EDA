@@ -1,0 +1,75 @@
+# Import pandas
+import pandas as pd
+
+# Input csv file
+df = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\social_media_interactions_contaminated.csv")
+
+# Remove duplicate rows
+df = df.drop_duplicates()
+
+# Check for missing values
+print("Missing values before processing:")
+print(df.isna().sum())
+
+# Display unique formats in InteractionDate
+print("Unique formats in InteractionDate before conversion:\n", df['InteractionDate'].unique())
+
+# Define a function to parse different date formats
+def parse_date(date_str):
+    # Attempt to parse several known formats
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y', '%Y/%m/%d', '%d/%m/%Y', '%m/%d/%Y', '%B %d, %Y', '%d %B %Y'):
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except (ValueError, TypeError):
+            continue  # Try the next format if this one fails
+    return pd.NaT  # Return NaT if no formats worked
+
+# Apply the parsing function
+df['InteractionDate'] = df['InteractionDate'].apply(parse_date)
+
+# Check for NaT values after parsing
+nat_count = df['InteractionDate'].isna().sum()
+print("NaT values in InteractionDate column after conversion:", nat_count)
+
+# Inspect problematic entries if there are any NaT values
+if nat_count > 0:
+    print("Remaining problematic date entries:\n", df[df['InteractionDate'].isna()]['InteractionDate'])
+
+# Confirm the data type of InteractionDate after all conversions
+print("Data type of InteractionDate after final conversion:", df['InteractionDate'].dtypes)
+
+# Find the most frequent Platform
+most_frequent_date = df['Platform'].mode()[0]
+
+# Fill NaN values with the most frequent Platform
+df['Platform'] = df['Platform'].fillna(most_frequent_date)
+
+# Check if there are any NaN values after conversion
+print("NaN values in Sentiment after conversion:")
+print(df['Sentiment'].isna().sum())
+
+# Find the most frequent Sentiment
+most_frequent_date = df['Sentiment'].mode()[0]
+
+# Fill NaN values with the most frequent Sentiment
+df['Sentiment'] = df['Sentiment'].fillna(most_frequent_date)
+
+# Sort DataFrame by CustomerID
+df = df.sort_values(by='CustomerID').reset_index(drop=True)
+
+# Rename columns
+df.rename(columns={
+    'CustomerID': 'Customer ID',
+    'InteractionID': 'Interaction ID',
+    'InteractionDate': 'Interaction Date',
+    'InteractionType': 'Interaction Type'
+}, inplace=True)
+
+# Verify the column names
+print(df.columns)
+
+# Print the DataFrame with formatting options
+print(df.to_string())  # Basic tabular output for full view
+
+# Export DataFrame
+df.to_csv("cleaned_social_media_interaction.csv", index=False)
