@@ -1,0 +1,97 @@
+# Import pandas
+import pandas as pd
+
+# Input csv file
+df = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\customer_demographics_contaminated.csv")
+
+# Remove duplicate rows
+df = df.drop_duplicates()
+
+# Check for missing values before conversion
+print("Missing values before conversion:\n", df.isna().sum())
+
+# Inspect the Data Types
+print("Data types before conversion:\n", df.dtypes)
+
+# Convert the Age column to numeric, coercing errors to NaN
+df['Age'] = pd.to_numeric(df['Age'], errors='coerce')
+
+# Check unique values in Age column after conversion
+print("Unique values in Age column after conversion:\n", df['Age'].unique())
+
+# Check for remaining NaN values in Age column
+print("NaN values in Age column after conversion:", df['Age'].isna().sum())
+
+# Calculate the median of the Age column, excluding NaN values
+median_age = df['Age'].median()
+
+# Replace NaN values with the column's median
+if df['Age'].isna().sum() > 0:
+    median_age = df['Age'].median()  # Calculate the median
+    df['Age'] = df['Age'].fillna(median_age)  # Replace NaNs with median
+
+# Confirm the Age column data type and check for NaN values
+print("Data type of Age after filling NaN:", df['Age'].dtypes)
+print("NaN values in Age column after handling:", df['Age'].isna().sum())  # Should be 0
+
+# Define thresholds for valid age ranges
+lower_threshold = 0
+upper_threshold = 90  # Set to a value that's considered realistic
+
+# Apply thresholds and replace invalid ages with median
+df.loc[(df['Age'] < lower_threshold) | (df['Age'] > upper_threshold), 'Age'] = df['Age'].median()
+
+# Check for NaN values and confirm the Age column data type
+print("NaN values in Age column after handling invalid values:", df['Age'].isna().sum())  # Should be 0
+
+# Convert Age to integer (by flooring or rounding)
+df['Age'] = df['Age'].astype(int)
+
+# Identify the most frequent category (mode)
+most_frequent_category = df['IncomeLevel'].mode()[0]
+
+# Replace NaN values with the most frequent category
+df['IncomeLevel'] = df['IncomeLevel'].fillna(most_frequent_category)
+
+# Display unique formats in SignupDate
+print("Unique formats in SignupDate before conversion:\n", df['SignupDate'].unique())
+
+# Define a function to parse different date formats
+def parse_date(date_str):
+    # Attempt to parse several known formats
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y', '%Y/%m/%d', '%d/%m/%Y', '%m/%d/%Y', '%B %d, %Y', '%d %B %Y'):
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except (ValueError, TypeError):
+            continue  # Try the next format if this one fails
+    return pd.NaT  # Return NaT if no formats worked
+
+# Apply the parsing function
+df['SignupDate'] = df['SignupDate'].apply(parse_date)
+
+# Check for NaT values after parsing
+nat_count = df['SignupDate'].isna().sum()
+print("NaT values in SignupDate column after conversion:", nat_count)
+
+# Inspect problematic entries if there are any NaT values
+if nat_count > 0:
+    print("Remaining problematic date entries:\n", df[df['SignupDate'].isna()]['SignupDate'])
+
+# Confirm the data type of SignupDate after all conversions
+print("Data type of SignupDate after final conversion:", df['SignupDate'].dtypes)
+
+# Rename the columns
+df.rename(columns={
+    'CustomerID': 'Customer ID',
+    'IncomeLevel': 'Income Level',
+    'SignupDate': 'Sign Up Date'
+}, inplace=True)
+
+# Print the cleaned DataFrame for verification
+print("Cleaned DataFrame head:\n", df.head())
+
+# Print the Dataframe with formatting options
+print(df.to_string())  # Basic tabular output for full view
+
+# Export DataFrame
+df.to_csv("cleaned_customer_demographics.csv", index=False)
