@@ -119,10 +119,11 @@ print(desc_df3)
 
 # Visualization for Customer Demographics
 plt.figure(figsize=(10, 6))
-sns.histplot(df1['Age'], bins=30, kde=True)  # Adjust 'Age' to a relevant column in the DataFrame
-plt.title('Age Distribution of Customers')
-plt.xlabel('Age')
-plt.ylabel('Frequency')
+sns.histplot(df1['Age'], bins=10, kde=True)  # Changed bin size to 10
+plt.title('Customer Age Distribution')
+plt.xlabel('Age Range (Years)')  
+plt.ylabel('Number of Customers')  
+plt.xticks(range(15, 75, 5))  # Set x-axis ticks every 5 years
 plt.show()
 
 # Visualization for Customer Transactions
