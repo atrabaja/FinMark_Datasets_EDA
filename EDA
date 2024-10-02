@@ -8,84 +8,49 @@ df1 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data P
 df2 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data Preprocessing of Machine Learning Solution Project Dataset BSIT-H3103 Mondero, GV., Rabaja, A., Vicente, JB. - cleaned_customer_transactions.csv")
 df3 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data Preprocessing of Machine Learning Solution Project Dataset BSIT-H3103 Mondero, GV., Rabaja, A., Vicente, JB. - cleaned_social_media_interaction.csv")
 
-# Display first few rows of each dataset to verify they are loaded correctly
-print(df1.head())
-print(df2.head())
-print(df3.head())
-
 # Function to analyze DataFrame structure
 def analyze_dataframe(df, df_name):
-    # Get the number of variables (columns) and observations (rows)
     num_variables = df.shape[1]
     num_observations = df.shape[0]
-    
-    # Get data types of each variable
     data_types = df.dtypes
-    
-    # Display initial observations
-    initial_info = df.info()
-    
-    # Summary message for dataset overview
     summary_message = f"The dataset '{df_name}' contains {num_observations} observations and {num_variables} variables. The variables have the following data types: {data_types.value_counts().to_dict()}."
     
-    # Return the analyzed results
     return {
         'DataFrame': df_name,
         'Number of Variables': num_variables,
         'Number of Observations': num_observations,
         'Data Types': data_types,
-        'Initial Info': initial_info,
         'Summary': summary_message
     }
 
-# Analyze each DataFrame
-results_df1 = analyze_dataframe(df1, "Customer Demographics")
-results_df2 = analyze_dataframe(df2, "Customer Transactions")
-results_df3 = analyze_dataframe(df3, "Social Media Interactions")
-
-# Print results with enhanced summary
-for result in [results_df1, results_df2, results_df3]:
-    print(f"\n--- {result['DataFrame']} ---")
-    print(f"Number of Variables: {result['Number of Variables']}")
-    print(f"Number of Observations: {result['Number of Observations']}")
-    print("Data Types:")
-    print(result['Data Types'])
-    print("Initial Observations:")
-    print(result['Initial Info'])
-    print("\nSummary:")
-    print(result['Summary'])
-
-# Function to assess data quality with enhancements
+# Function to assess data quality
 def assess_data_quality(df, df_name):
-    print(f"\nAssessing data quality for {df_name}:")
+    report = []
     
-    # 1. Identify missing values
+    report.append(f"\nAssessing data quality for {df_name}:")
+    
+    # Identify missing values
     missing_values = df.isnull().sum()
-    print("\nMissing Values:")
-    print(missing_values[missing_values > 0])  # Display only columns with missing values
-
-    # 2. Count of missing values
+    missing_summary = missing_values[missing_values > 0]
+    report.append(f"\nMissing Values:\n{missing_summary}")
+    
     total_missing = missing_values.sum()
-    print(f"\nTotal missing values: {total_missing}")
+    report.append(f"\nTotal missing values: {total_missing}")
+    
+    # Basic statistics for numeric variables
+    report.append("\nBasic Statistics (Mean, Median, Min, Max):")
+    report.append(df.describe().to_string())
 
-    # 3. Methods to handle missing data based on the project report
-    if total_missing > 0:
-        print("\nHandling missing data by imputation or removal based on the specific context of the variables.")
-
-    # 4. Basic statistics for numeric variables
-    print("\nBasic Statistics (Mean, Median, Min, Max):")
-    print(df.describe())
-
-    # 5. Frequency counts for categorical variables
+    # Frequency counts for categorical variables
     categorical_cols = df.select_dtypes(include=['object']).columns
     if len(categorical_cols) > 0:
-        print("\nFrequency Counts for Categorical Variables:")
+        report.append("\nFrequency Counts for Categorical Variables:")
         for col in categorical_cols:
-            print(f"\n{col}:\n{df[col].value_counts()}")
+            report.append(f"\n{col}:\n{df[col].value_counts().to_string()}")
     
-    # 6. Identify and handle outliers using IQR method
+    # Outlier detection using IQR method
     numeric_cols = df.select_dtypes(include=['number']).columns
-    print("\nIdentifying outliers using IQR method:")
+    report.append("\nIdentifying outliers using IQR method:")
     for col in numeric_cols:
         Q1 = df[col].quantile(0.25)
         Q3 = df[col].quantile(0.75)
@@ -93,29 +58,45 @@ def assess_data_quality(df, df_name):
         lower_bound = Q1 - 1.5 * IQR
         upper_bound = Q3 + 1.5 * IQR
         outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
-        print(f"\nOutliers for {col}:\n{outliers}")
         if not outliers.empty:
-            print(f"Handling outliers in '{col}' by considering their context within the dataset.")
+            report.append(f"\nOutliers for {col}:\n{outliers.to_string()}")
 
-# Assess each DataFrame for data quality
-assess_data_quality(df1, "Customer Demographics")
-assess_data_quality(df2, "Customer Transactions")
-assess_data_quality(df3, "Social Media Interactions")
+    return "\n".join(report)
 
-# Descriptive statistics for each DataFrame
-desc_df1 = df1.describe(include='all')  # Include all data types
-desc_df2 = df2.describe(include='all')  # Include all data types
-desc_df3 = df3.describe(include='all')  # Include all data types
+# Analyze each DataFrame
+results_df1 = analyze_dataframe(df1, "Customer Demographics")
+results_df2 = analyze_dataframe(df2, "Customer Transactions")
+results_df3 = analyze_dataframe(df3, "Social Media Interactions")
 
-# Print descriptive statistics
-print("\nDescriptive Statistics for DataFrame 1 - Customer Demographics:")
-print(desc_df1)
+# Assign data quality assessment results
+data_quality_df1 = assess_data_quality(df1, "Customer Demographics")
+data_quality_df2 = assess_data_quality(df2, "Customer Transactions")
+data_quality_df3 = assess_data_quality(df3, "Social Media Interactions")
 
-print("\nDescriptive Statistics for DataFrame 2 - Customer Transactions:")
-print(desc_df2)
+# Save analysis and data quality results to a text file
+with open("data_analysis_report.txt", "w") as file:
+    # Write the structure analysis results
+    for result in [results_df1, results_df2, results_df3]:
+        file.write(f"\n--- {result['DataFrame']} ---\n")
+        file.write(f"Number of Variables: {result['Number of Variables']}\n")
+        file.write(f"Number of Observations: {result['Number of Observations']}\n")
+        file.write("Data Types:\n")
+        file.write(result['Data Types'].to_string())
+        file.write("\nSummary:\n")
+        file.write(result['Summary'])
+        file.write("\n\n")
+    
+    # Write the data quality assessment
+    file.write("\n--- Data Quality Assessment ---\n")
+    file.write(data_quality_df1)
+    file.write("\n\n")
+    file.write(data_quality_df2)
+    file.write("\n\n")
+    file.write(data_quality_df3)
+    file.write("\n\n")
 
-print("\nDescriptive Statistics for DataFrame 3 - Social Media Interactions:")
-print(desc_df3)
+# Print a message to confirm saving the file
+print("Data analysis and data quality results have been saved to 'data_analysis_report.txt'")
 
 # Visualization for Customer Demographics
 plt.figure(figsize=(10, 6))
@@ -124,6 +105,7 @@ plt.title('Customer Age Distribution')
 plt.xlabel('Age Range (Years)')  
 plt.ylabel('Number of Customers')  
 plt.xticks(range(15, 75, 5))  # Set x-axis ticks every 5 years
+plt.savefig("customer_age_distribution.png")  # Save plot as image
 plt.show()
 
 # Visualization for Customer Transactions
@@ -133,6 +115,7 @@ plt.title('Transaction Amount by Product Category')
 plt.xlabel('Product Category')
 plt.ylabel('Transaction Amount')
 plt.xticks(rotation=45)
+plt.savefig("transaction_amount_by_product_category.png")  # Save plot as image
 plt.show()
 
 # Visualization for Social Media Interactions
@@ -142,4 +125,5 @@ plt.title('Number of Interactions by Social Media Platform')
 plt.xlabel('Social Media Platform')
 plt.ylabel('Number of Interactions')
 plt.xticks(rotation=45)
+plt.savefig("social_media_interactions_by_platform.png")  # Save plot as image
 plt.show()
