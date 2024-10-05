@@ -1,0 +1,39 @@
+# Import libraries
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Input CSV files
+df1 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data Preprocessing of Machine Learning Solution Project Dataset BSIT-H3103 Mondero, GV., Rabaja, A., Vicente, JB. - cleaned_customer_demographics.csv")
+df2 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data Preprocessing of Machine Learning Solution Project Dataset BSIT-H3103 Mondero, GV., Rabaja, A., Vicente, JB. - cleaned_customer_transactions.csv")
+df3 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data Preprocessing of Machine Learning Solution Project Dataset BSIT-H3103 Mondero, GV., Rabaja, A., Vicente, JB. - cleaned_social_media_interaction.csv")
+
+# Visualization for Customer Demographics
+plt.figure(figsize=(10, 6))
+sns.histplot(df1['Age'], bins=10, kde=True)  # Changed bin size to 10
+plt.title('Customer Age Distribution')
+plt.xlabel('Age Range (Years)')  
+plt.ylabel('Number of Customers')  
+plt.xticks(range(15, 75, 5))  # Set x-axis ticks every 5 years
+plt.savefig("customer_age_distribution.png")  # Save plot as image
+plt.show()
+
+# Visualization for Customer Transactions
+plt.figure(figsize=(10, 6))
+sns.boxplot(x='Product Category', y='Amount', data=df2)  # Use the correct column names
+plt.title('Transaction Amount by Product Category')
+plt.xlabel('Product Category')
+plt.ylabel('Transaction Amount')
+plt.xticks(rotation=45)
+plt.savefig("transaction_amount_by_product_category.png")  # Save plot as image
+plt.show()
+
+# Visualization for Social Media Interactions
+plt.figure(figsize=(10, 6))
+sns.countplot(x='Platform', data=df3)  # Adjust 'Platform' to a relevant column in the DataFrame
+plt.title('Number of Interactions by Social Media Platform')
+plt.xlabel('Social Media Platform')
+plt.ylabel('Number of Interactions')
+plt.xticks(rotation=45)
+plt.savefig("social_media_interactions_by_platform.png")  # Save plot as image
+plt.show()
