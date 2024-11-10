@@ -1,0 +1,255 @@
+# Import Libraries
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+import streamlit as st
+
+# Set the environment variable for the number of threads before importing sklearn
+os.environ["OMP_NUM_THREADS"] = "5"  # Set this to a lower number to see if it helps
+
+# Load datasets
+df1 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data Preprocessing of Machine Learning Solution Project Dataset BSIT-H3103 Mondero, GV., Rabaja, A., Vicente, JB. - cleaned_customer_demographics.csv")
+df2 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data Preprocessing of Machine Learning Solution Project Dataset BSIT-H3103 Mondero, GV., Rabaja, A., Vicente, JB. - cleaned_customer_transactions.csv")
+df3 = pd.read_csv("C:\\Users\\Angel Rabaja\\Downloads\\MO-IT125 Homework_ Data Preprocessing of Machine Learning Solution Project Dataset BSIT-H3103 Mondero, GV., Rabaja, A., Vicente, JB. - cleaned_social_media_interaction.csv")
+
+# Set display options to show the full DataFrame
+pd.set_option('display.max_columns', None)  # Show all columns
+pd.set_option('display.expand_frame_repr', False)  # Do not wrap rows
+
+# Check the first few rows of each DataFrame
+print("Customer Demographics DataFrame:")
+print(df1.head())
+print("\nCustomer Transactions DataFrame:")
+print(df2.head())
+print("\nSocial Media Interactions DataFrame:")
+print(df3.head())
+
+# Check for missing values and data types
+print("\nCustomer Demographics Info:")
+print(df1.info())
+print("\nCustomer Transactions Info:")
+print(df2.info())
+print("\nSocial Media Interactions Info:")
+print(df3.info())
+
+# Merge Customer Demographics with Customer Transactions
+merged_df = pd.merge(df1, df2, on='Customer ID', how='inner')  # Using 'inner' to keep only matching records
+print("\nMerged DataFrame after merging Customer Demographics with Customer Transactions:")
+print(merged_df.head())
+
+# Merge the resulting DataFrame with Social Media Interactions
+merged_df = pd.merge(merged_df, df3, on='Customer ID', how='inner')
+print("\nFinal Merged DataFrame after adding Social Media Interactions:")
+print(merged_df.head())
+
+# Check for missing values in the final merged DataFrame
+print("\nMissing Values in Final Merged DataFrame:")
+missing_values_final = merged_df.isnull().sum()
+print(missing_values_final[missing_values_final > 0])  # Display only columns with missing values
+
+# Function to parse dates with multiple formats
+def parse_date(date_str):
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y', '%Y/%m/%d', '%d/%m/%Y', '%m/%d/%Y', '%B %d, %Y', '%d %B %Y'):
+        try:
+            return pd.to_datetime(date_str, format=fmt)
+        except (ValueError, TypeError):
+            continue
+    return pd.NaT
+
+# Convert date columns
+for date_col in ['Sign Up Date', 'Transaction Date', 'Interaction Date']:
+    if date_col in merged_df.columns:
+        merged_df[date_col] = merged_df[date_col].apply(parse_date)
+
+# Filter out data for RFM analysis
+latest_date = merged_df['Transaction Date'].max() + pd.Timedelta(days=1)
+
+# Calculate RFM metrics
+if 'Transaction Date' in merged_df.columns and 'Amount' in merged_df.columns:
+    # Set a reference date for recency calculation
+    reference_date = merged_df['Transaction Date'].max()
+
+    # Calculate Recency, Frequency, and Monetary (RFM)
+    rfm_df = merged_df.groupby('Customer ID').agg({
+        'Transaction Date': lambda x: (reference_date - x.max()).days,  # Recency
+        'Customer ID': 'count',  # Frequency
+        'Amount': 'sum'  # Monetary
+    }).rename(columns={
+        'Transaction Date': 'Recency',
+        'Customer ID': 'Frequency',
+        'Amount': 'Monetary'
+    }).reset_index()
+
+    print("\nRFM Metrics:")
+    print(rfm_df.head())
+
+    # Apply log transformation to Recency, Frequency, and Monetary
+    if 'Monetary' in rfm_df.columns:
+        rfm_df['Recency_log'] = np.log1p(rfm_df['Recency'])
+        rfm_df['Frequency_log'] = np.log1p(rfm_df['Frequency'])
+        rfm_df['Monetary_log'] = np.log1p(rfm_df['Monetary'])
+
+        # Print transformed columns to verify
+        print("RFM DataFrame with log transformations:")
+        print(rfm_df[['Recency_log', 'Frequency_log', 'Monetary_log']].head())
+    else:
+        print("Error: 'Monetary' column not found in rfm_df.")
+
+    # Split data into training and testing sets
+    X = rfm_df[['Recency', 'Frequency', 'Monetary']]
+    y = rfm_df['Monetary']  # Assuming we want to predict the Monetary value
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Create a Random Forest Regressor pipeline
+    model = Pipeline(steps=[
+        ('scaler', StandardScaler()), 
+        ('regressor', RandomForestRegressor(n_estimators=100, random_state=42))
+    ])
+
+    # Train the model
+    model.fit(X_train, y_train)
+
+    # Predict and evaluate
+    y_pred = model.predict(X_test)
+    mae = mean_absolute_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    print(f'Mean Absolute Error: {mae}')
+    print(f'R^2 Score: {r2}')
+
+else:
+    print("Required columns for RFM calculation are missing.")
+
+# Check if the 'Age' column exists
+if 'Age' in df1.columns:
+    # We can use Age directly as a feature
+    print("Using Age column for feature engineering.")
+
+    # Re-merge the datasets to include the Age feature
+    merged_df = pd.merge(merged_df, df1[['Customer ID', 'Age']], on='Customer ID', how='inner')
+else:
+    print("Error: 'Age' column not found in Customer Demographics data.")
+
+# Calculate Frequency of Transactions
+transaction_counts = df2.groupby('Customer ID')['Transaction Date'].count().reset_index(name='Transaction Frequency')
+
+# Calculate Average Transaction Value
+average_transaction_value = df2.groupby('Customer ID')['Amount'].mean().reset_index(name='Average Transaction Value')
+
+# Get the Last Purchase Date
+last_purchase_date = df2.groupby('Customer ID')['Transaction Date'].max().reset_index(name='Last Purchase Date')
+
+# Merge these new features into the merged DataFrame
+merged_df = merged_df.merge(transaction_counts, on='Customer ID', how='left')
+merged_df = merged_df.merge(average_transaction_value, on='Customer ID', how='left')
+merged_df = merged_df.merge(last_purchase_date, on='Customer ID', how='left')
+
+# Calculate Time since Last Purchase
+if 'Last Purchase Date' in merged_df.columns:
+    merged_df['Last Purchase Date'] = pd.to_datetime(merged_df['Last Purchase Date'])
+    merged_df['Time Since Last Purchase'] = (pd.to_datetime('today') - merged_df['Last Purchase Date']).dt.days
+
+# Display the updated DataFrame
+print("\nMerged DataFrame with additional features:")
+print(merged_df.head())
+
+# Select RFM features for clustering
+rfm_clustering_data = rfm_df[['Recency', 'Frequency', 'Monetary']]
+
+# Determine the optimal number of clusters using the Elbow method
+wcss = []
+for i in range(1, 11):
+    kmeans = KMeans(n_clusters=i, random_state=42)
+    kmeans.fit(rfm_clustering_data)
+    wcss.append(kmeans.inertia_)
+
+# Plot the Elbow curve
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, 11), wcss)
+plt.title('Elbow Method for Optimal K')
+plt.xlabel('Number of clusters')
+plt.ylabel('WCSS')  # Within-cluster sum of squares
+plt.grid()
+plt.savefig('elbow_method_plot.png')  # Save the plot to a file
+plt.show()
+
+# Display additional features and model predictions in Streamlit (Optional for UI)
+st.write("Merged DataFrame with additional features:", merged_df)
+st.write("RFM Metrics:", rfm_df)
+plt.savefig('elbow_method_plot.png')  # Save the elbow plot image
+plt.show()  # Display the plot
+
+# Based on the elbow plot, choose the optimal number of clusters (e.g., 3 clusters)
+optimal_clusters = 3
+
+# Apply KMeans clustering with the chosen number of clusters
+kmeans = KMeans(n_clusters=optimal_clusters, random_state=42)
+rfm_df['Cluster'] = kmeans.fit_predict(rfm_clustering_data)
+
+# Display the RFM DataFrame with the assigned clusters
+print("\nRFM DataFrame with Clusters:")
+print(rfm_df.head())
+
+# Calculate silhouette score to evaluate the clustering
+sil_score = silhouette_score(rfm_clustering_data, rfm_df['Cluster'])
+print(f"Silhouette Score: {sil_score}")
+
+# Plot the clusters
+plt.figure(figsize=(10, 6))
+sns.scatterplot(data=rfm_df, x='Recency', y='Frequency', hue='Cluster', palette='viridis', s=100)
+plt.title(f'RFM Clustering (Silhouette Score: {sil_score:.2f})')
+plt.xlabel('Recency')
+plt.ylabel('Frequency')
+plt.legend(title='Cluster')
+plt.grid(True)
+plt.savefig('rfm_clustering_plot.png')  # Save the clustering plot image
+plt.show()  # Display the plot
+
+# Now we can use the clusters for segmentation, for example:
+# 1. Identifying high-value customers (cluster with low recency, high frequency, and high monetary)
+high_value_customers = rfm_df[rfm_df['Cluster'] == 0]  # Assuming cluster 0 is the high-value cluster
+print("\nHigh Value Customers:")
+print(high_value_customers[['Customer ID', 'Recency', 'Frequency', 'Monetary']].head())
+
+# 2. Further analysis on each cluster can be done to understand customer behaviors
+cluster_summary = rfm_df.groupby('Cluster').agg({
+    'Recency': ['mean', 'std'],
+    'Frequency': ['mean', 'std'],
+    'Monetary': ['mean', 'std']
+}).reset_index()
+
+print("\nCluster Summary:")
+print(cluster_summary)
+
+# Optionally, use Streamlit to display interactive results
+st.title("Customer Segmentation and RFM Analysis")
+st.write("RFM Analysis and KMeans Clustering of Customer Data")
+
+# Display the RFM DataFrame
+st.write("RFM Metrics DataFrame:")
+st.dataframe(rfm_df)
+
+# Show silhouette score
+st.write(f"Silhouette Score: {sil_score:.2f}")
+
+# Plot and display the elbow method plot
+st.image('elbow_method_plot.png', caption='Elbow Method for Optimal K')
+
+# Show the RFM clustering plot
+st.image('rfm_clustering_plot.png', caption='RFM Clustering Plot')
+
+# Display high-value customers
+st.write("High-Value Customers:")
+st.dataframe(high_value_customers[['Customer ID', 'Recency', 'Frequency', 'Monetary']])
+
+# Optionally, export results to a CSV for further analysis
+rfm_df.to_csv('rfm_customer_segments.csv', index=False)
