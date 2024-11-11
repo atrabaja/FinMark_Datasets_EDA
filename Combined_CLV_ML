@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import scipy.stats as stats
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
@@ -178,8 +179,8 @@ plt.ylabel('WCSS (Within-cluster sum of squares)')
 plt.grid(True)
 plt.show()
 
-# Choose the optimal number of clusters (e.g., from the Elbow curve)
-optimal_clusters = 3  # Based on the plot, we might choose 3 as an example
+# Based on the elbow plot, determine the optimal number of clusters
+optimal_clusters = 4
 
 # Perform KMeans clustering with the chosen number of clusters
 kmeans = KMeans(n_clusters=optimal_clusters, random_state=42)
@@ -223,3 +224,140 @@ plt.show()
 # Silhouette Score to evaluate clustering quality
 sil_score = silhouette_score(rfm_clustering_data, rfm_df['Cluster'])
 print(f"Silhouette Score for the clustering: {sil_score:.3f}")
+
+# 1. Hypothesis Testing for Customer Segments (T-test/ANOVA)
+# We will check if high and low-frequency customers differ in their CLV (Monetary)
+
+# Create two customer segments (e.g., high frequency vs low frequency)
+high_freq = rfm_df[rfm_df['Frequency'] > rfm_df['Frequency'].median()]
+low_freq = rfm_df[rfm_df['Frequency'] <= rfm_df['Frequency'].median()]
+
+# Hypothesis Testing: Test the correlation between 'Recency' and 'Monetary'
+# Null Hypothesis: There is no significant correlation between Recency and Monetary
+
+# Perform Pearson correlation test
+correlation, p_value = stats.pearsonr(rfm_df['Recency'], rfm_df['Monetary'])
+
+print(f"Correlation between Recency and Monetary: {correlation}")
+print(f"P-value for the correlation test: {p_value}")
+
+# Decision Rule: If p-value < 0.05, we reject the null hypothesis (there is a significant relationship)
+
+if p_value < 0.05:
+    print("Reject the null hypothesis: There is a significant relationship between Recency and Monetary.")
+else:
+    print("Fail to reject the null hypothesis: There is no significant relationship between Recency and Monetary.")
+
+# Visualization: Scatter plot with regression line for Recency vs Monetary
+plt.figure(figsize=(10, 6))
+sns.regplot(x='Recency', y='Monetary', data=rfm_df, scatter_kws={'color': 'blue'}, line_kws={'color': 'red'})
+plt.title('Relationship between Recency and Monetary', fontsize=16)
+plt.xlabel('Recency (Days)', fontsize=14)
+plt.ylabel('Monetary (Total Spend)', fontsize=14)
+plt.grid(True)
+plt.show()
+plt.xlabel('Number of Clusters')
+plt.ylabel('WCSS (Within-Cluster Sum of Squares)')
+plt.show()
+
+# Based on the elbow plot, let's assume the optimal number of clusters is 3 (or another value from your analysis)
+optimal_clusters = 3
+kmeans = KMeans(n_clusters=optimal_clusters, random_state=42)
+
+# Fit KMeans clustering model to RFM data
+rfm_df['Cluster'] = kmeans.fit_predict(rfm_clustering_data)
+
+# Display the clustering result
+print("\nRFM Clusters assigned to each customer:")
+print(rfm_df[['Customer ID', 'Cluster']].head())
+
+# Evaluate clustering quality using Silhouette Score
+sil_score = silhouette_score(rfm_clustering_data, rfm_df['Cluster'])
+print(f'Silhouette Score for the clustering: {sil_score}')
+
+# Visualize the clustering result
+plt.figure(figsize=(10, 6))
+sns.scatterplot(data=rfm_df, x='Recency', y='Frequency', hue='Cluster', palette='Set1', s=100, marker='o')
+plt.title('RFM Clustering Results')
+plt.xlabel('Recency')
+plt.ylabel('Frequency')
+plt.legend(title='Cluster')
+plt.show()
+
+# Further analysis: Profiling the Clusters
+# Grouping by clusters and computing mean and standard deviation for each RFM feature
+cluster_profiles = rfm_df.groupby('Cluster').agg({
+    'Recency': ['mean', 'std'],
+    'Frequency': ['mean', 'std'],
+    'Monetary': ['mean', 'std']
+}).reset_index()
+
+print("\nCluster Profiles:")
+print(cluster_profiles)
+
+# We can also create a more visual representation of the clusters
+# For example, plotting the clusters in a 3D space using the RFM features
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure(figsize=(12, 8))
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(rfm_df['Recency'], rfm_df['Frequency'], rfm_df['Monetary'], c=rfm_df['Cluster'], cmap='Set1', s=100)
+ax.set_xlabel('Recency')
+ax.set_ylabel('Frequency')
+ax.set_zlabel('Monetary')
+ax.set_title('3D Visualization of RFM Clusters')
+plt.show()
+
+# Customer Profiling for Marketing Strategies
+# Now that we have customer segments (clusters), we can associate each cluster with a marketing strategy.
+# For example:
+marketing_strategies = {
+    0: "Low-Engagement: Target with re-engagement campaigns",
+    1: "High-Engagement: Reward loyalty and increase retention",
+    2: "Moderate-Engagement: Target with seasonal offers"
+}
+
+rfm_df['Marketing Strategy'] = rfm_df['Cluster'].map(marketing_strategies)
+
+# Display the updated RFM DataFrame with marketing strategies
+print("\nRFM DataFrame with Marketing Strategy:")
+print(rfm_df[['Customer ID', 'Cluster', 'Marketing Strategy']].head())
+
+# You could also build a more advanced predictive model for customer behavior (churn prediction, sales forecasting)
+# For example, using Gradient Boosting Regressor for predicting future purchase amount based on RFM features
+
+# Train a Gradient Boosting Regressor to predict future purchase value (Monetary)
+X = rfm_df[['Recency', 'Frequency', 'Monetary']]
+y = rfm_df['Monetary']  # This could be future spending or another target variable if available
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Create and train the Gradient Boosting model
+gb_model = GradientBoostingRegressor(n_estimators=100, random_state=42)
+gb_model.fit(X_train, y_train)
+
+# Predictions
+y_pred_gb = gb_model.predict(X_test)
+
+# Evaluate the model
+mae_gb = mean_absolute_error(y_test, y_pred_gb)
+r2_gb = r2_score(y_test, y_pred_gb)
+print(f'Gradient Boosting - Mean Absolute Error: {mae_gb}')
+print(f'Gradient Boosting - R^2 Score: {r2_gb}')
+
+# Feature Importance: Understand which RFM features are most important for predictions
+importances = gb_model.feature_importances_
+features = ['Recency', 'Frequency', 'Monetary']
+feature_importance_df = pd.DataFrame({
+    'Feature': features,
+    'Importance': importances
+}).sort_values(by='Importance', ascending=False)
+
+print("\nFeature Importance:")
+print(feature_importance_df)
+
+# Plotting the feature importances with a hue
+plt.figure(figsize=(10, 6))
+sns.barplot(x='Importance', y='Feature', data=feature_importance_df, hue='Feature', palette='viridis', legend=False)
+plt.title('Feature Importance - Gradient Boosting Model')
+plt.show()
