@@ -10,6 +10,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.cluster import KMeans
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import silhouette_score
 import streamlit as st
 
@@ -32,14 +34,6 @@ print("\nCustomer Transactions DataFrame:")
 print(df2.head())
 print("\nSocial Media Interactions DataFrame:")
 print(df3.head())
-
-# Check for missing values and data types
-print("\nCustomer Demographics Info:")
-print(df1.info())
-print("\nCustomer Transactions Info:")
-print(df2.info())
-print("\nSocial Media Interactions Info:")
-print(df3.info())
 
 # Merge Customer Demographics with Customer Transactions
 merged_df = pd.merge(df1, df2, on='Customer ID', how='inner')  # Using 'inner' to keep only matching records
@@ -69,6 +63,9 @@ def parse_date(date_str):
 for date_col in ['Sign Up Date', 'Transaction Date', 'Interaction Date']:
     if date_col in merged_df.columns:
         merged_df[date_col] = merged_df[date_col].apply(parse_date)
+
+# Ensure 'Transaction Date' is in datetime format
+merged_df['Transaction Date'] = pd.to_datetime(merged_df['Transaction Date'])
 
 # Filter out data for RFM analysis
 latest_date = merged_df['Transaction Date'].max() + pd.Timedelta(days=1)
@@ -172,84 +169,57 @@ for i in range(1, 11):
     kmeans.fit(rfm_clustering_data)
     wcss.append(kmeans.inertia_)
 
-# Plot the Elbow curve
+# Plot the Elbow curve to determine the optimal number of clusters
 plt.figure(figsize=(10, 6))
-plt.plot(range(1, 11), wcss)
-plt.title('Elbow Method for Optimal K')
-plt.xlabel('Number of clusters')
-plt.ylabel('WCSS')  # Within-cluster sum of squares
-plt.grid()
-plt.savefig('elbow_method_plot.png')  # Save the plot to a file
+plt.plot(range(1, 11), wcss, marker='o', color='b', linestyle='--')
+plt.title('Elbow Method for Optimal Clusters')
+plt.xlabel('Number of Clusters')
+plt.ylabel('WCSS (Within-cluster sum of squares)')
+plt.grid(True)
 plt.show()
 
-# Display additional features and model predictions in Streamlit (Optional for UI)
-st.write("Merged DataFrame with additional features:", merged_df)
-st.write("RFM Metrics:", rfm_df)
-plt.savefig('elbow_method_plot.png')  # Save the elbow plot image
-plt.show()  # Display the plot
+# Choose the optimal number of clusters (e.g., from the Elbow curve)
+optimal_clusters = 3  # Based on the plot, we might choose 3 as an example
 
-# Based on the elbow plot, choose the optimal number of clusters (e.g., 3 clusters)
-optimal_clusters = 3
-
-# Apply KMeans clustering with the chosen number of clusters
+# Perform KMeans clustering with the chosen number of clusters
 kmeans = KMeans(n_clusters=optimal_clusters, random_state=42)
 rfm_df['Cluster'] = kmeans.fit_predict(rfm_clustering_data)
 
-# Display the RFM DataFrame with the assigned clusters
-print("\nRFM DataFrame with Clusters:")
-print(rfm_df.head())
-
-# Calculate silhouette score to evaluate the clustering
-sil_score = silhouette_score(rfm_clustering_data, rfm_df['Cluster'])
-print(f"Silhouette Score: {sil_score}")
-
-# Plot the clusters
+# Visualize the clusters
 plt.figure(figsize=(10, 6))
-sns.scatterplot(data=rfm_df, x='Recency', y='Frequency', hue='Cluster', palette='viridis', s=100)
-plt.title(f'RFM Clustering (Silhouette Score: {sil_score:.2f})')
+sns.scatterplot(x='Recency', y='Monetary', hue='Cluster', data=rfm_df, palette='Set1', s=100, alpha=0.6)
+plt.title(f'KMeans Clustering of Customers (n={optimal_clusters})')
 plt.xlabel('Recency')
-plt.ylabel('Frequency')
-plt.legend(title='Cluster')
-plt.grid(True)
-plt.savefig('rfm_clustering_plot.png')  # Save the clustering plot image
-plt.show()  # Display the plot
+plt.ylabel('Monetary')
+plt.legend(title='Cluster', loc='upper right')
+plt.show()
 
-# Now we can use the clusters for segmentation, for example:
-# 1. Identifying high-value customers (cluster with low recency, high frequency, and high monetary)
-high_value_customers = rfm_df[rfm_df['Cluster'] == 0]  # Assuming cluster 0 is the high-value cluster
-print("\nHigh Value Customers:")
-print(high_value_customers[['Customer ID', 'Recency', 'Frequency', 'Monetary']].head())
+# Visualizing RFM Distribution
+plt.figure(figsize=(12, 8))
 
-# 2. Further analysis on each cluster can be done to understand customer behaviors
-cluster_summary = rfm_df.groupby('Cluster').agg({
-    'Recency': ['mean', 'std'],
-    'Frequency': ['mean', 'std'],
-    'Monetary': ['mean', 'std']
-}).reset_index()
+# Recency Distribution
+plt.subplot(2, 2, 1)
+sns.histplot(rfm_df['Recency'], kde=True, color='blue', bins=30)
+plt.title('Distribution of Recency')
 
-print("\nCluster Summary:")
-print(cluster_summary)
+# Frequency Distribution
+plt.subplot(2, 2, 2)
+sns.histplot(rfm_df['Frequency'], kde=True, color='green', bins=30)
+plt.title('Distribution of Frequency')
 
-# Optionally, use Streamlit to display interactive results
-st.title("Customer Segmentation and RFM Analysis")
-st.write("RFM Analysis and KMeans Clustering of Customer Data")
+# Monetary Distribution
+plt.subplot(2, 2, 3)
+sns.histplot(rfm_df['Monetary'], kde=True, color='red', bins=30)
+plt.title('Distribution of Monetary')
 
-# Display the RFM DataFrame
-st.write("RFM Metrics DataFrame:")
-st.dataframe(rfm_df)
+# Log-transformed Recency Distribution
+plt.subplot(2, 2, 4)
+sns.histplot(rfm_df['Recency_log'], kde=True, color='purple', bins=30)
+plt.title('Log-transformed Recency Distribution')
 
-# Show silhouette score
-st.write(f"Silhouette Score: {sil_score:.2f}")
+plt.tight_layout()
+plt.show()
 
-# Plot and display the elbow method plot
-st.image('elbow_method_plot.png', caption='Elbow Method for Optimal K')
-
-# Show the RFM clustering plot
-st.image('rfm_clustering_plot.png', caption='RFM Clustering Plot')
-
-# Display high-value customers
-st.write("High-Value Customers:")
-st.dataframe(high_value_customers[['Customer ID', 'Recency', 'Frequency', 'Monetary']])
-
-# Optionally, export results to a CSV for further analysis
-rfm_df.to_csv('rfm_customer_segments.csv', index=False)
+# Silhouette Score to evaluate clustering quality
+sil_score = silhouette_score(rfm_clustering_data, rfm_df['Cluster'])
+print(f"Silhouette Score for the clustering: {sil_score:.3f}")
